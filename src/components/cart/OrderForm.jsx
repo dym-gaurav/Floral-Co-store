@@ -7,7 +7,6 @@ import { buildOrderImage, downloadBlob, orderSignature } from "../../utils/order
 import { siteConfig } from "../../config/site";
 
 const FILE_NAME = "floral-and-co-order.png";
-const SHARE_TITLE = "Floral & Co. Order";
 
 // Touch phones/tablets (also true when Chrome is set to "Desktop site")
 const isMobile = () =>
@@ -111,9 +110,13 @@ export default function OrderForm({ items, subtotal }) {
     return Boolean(w);
   };
 
-  // Fallback when the picture can't be handed over by the share sheet: save it, open the chat, explain.
-  const runFallback = async (blob, reason) => {
-    if (blob) downloadBlob(blob, FILE_NAME);
+  // Saves the order picture, then opens OUR WhatsApp chat directly with the message already typed.
+  // (WhatsApp links can't attach a picture, so the customer attaches the saved one before sending.)
+  const sendToChat = async (blob) => {
+    if (blob) {
+      downloadBlob(blob, FILE_NAME);
+      await new Promise((r) => setTimeout(r, 400)); // let the download start before WhatsApp takes over
+    }
     const opened = openChat();
     let copied = false;
     if (blob && !isMobile() && navigator.clipboard?.write && window.ClipboardItem) {
@@ -124,7 +127,14 @@ export default function OrderForm({ items, subtotal }) {
         /* clipboard images not allowed here */
       }
     }
-    setHelp({ reason, opened, copied, hasImage: Boolean(blob), desktop: !isMobile() });
+    setHelp({
+      reason: blob
+        ? "WhatsApp is opening with your order message already typed. Your order picture was saved to your device."
+        : "We couldn't create the order picture on this device, so WhatsApp opened with your full order message instead.",
+      opened,
+      copied,
+      hasImage: Boolean(blob),
+    });
   };
 
   const handleOrder = async () => {
@@ -142,38 +152,7 @@ export default function OrderForm({ items, subtotal }) {
       } catch {
         blob = null;
       }
-      if (!blob) {
-        await runFallback(null, "We couldn't create the order picture on this device, so WhatsApp opened with your full order message instead.");
-        return;
-      }
-
-      const file = new File([blob], FILE_NAME, { type: "image/png" });
-      const canShareFile =
-        isMobile() &&
-        typeof navigator.share === "function" &&
-        typeof navigator.canShare === "function" &&
-        navigator.canShare({ files: [file] });
-
-      if (canShareFile) {
-        try {
-          await navigator.share({ title: SHARE_TITLE, text: message, files: [file] });
-          return; // the share sheet handles the rest; nothing is marked as ordered
-        } catch (err) {
-          if (err?.name === "AbortError") {
-            toast("Sharing cancelled. Your order has not been sent.");
-            return;
-          }
-          await runFallback(blob, "Your browser blocked the share screen, so we saved the picture and opened WhatsApp for you.");
-          return;
-        }
-      }
-
-      await runFallback(
-        blob,
-        window.isSecureContext
-          ? "This browser can't attach the picture automatically, so we saved it and opened WhatsApp with your message."
-          : "Picture sharing needs the site to be on https, so we saved the picture and opened WhatsApp with your message."
-      );
+      await sendToChat(blob);
     } catch {
       toast.error("Something went wrong preparing your order. Please try again.");
     } finally {
@@ -199,8 +178,8 @@ export default function OrderForm({ items, subtotal }) {
       <h2 id="checkout-title" className="text-4xl sm:text-5xl">Send your order on WhatsApp</h2>
       <ol className="mt-5 max-w-2xl list-decimal space-y-1 pl-5 text-mist">
         <li>Add your delivery details below.</li>
-        <li>Tap Place Order via WhatsApp. Your order picture and message are ready to share.</li>
-        <li>Choose WhatsApp, pick our chat and press send. We reply to confirm availability and final pricing.</li>
+        <li>Tap Place Order via WhatsApp. Our chat opens with your order message already typed, and your order picture is saved to your phone.</li>
+        <li>Attach the picture with the paperclip (optional), then press send. We reply to confirm availability and final pricing.</li>
       </ol>
 
       <div className="mt-10 grid gap-10 lg:grid-cols-2">
@@ -260,7 +239,7 @@ export default function OrderForm({ items, subtotal }) {
               <p>{help.reason}</p>
               <p className="mt-3 font-medium text-gold">
                 {help.hasImage
-                  ? "Important: attach your order picture in the chat before you press send."
+                  ? "Attach your order picture in the chat (paperclip), then press send."
                   : "Your order message is already typed in the chat. Press send to place your order."}
               </p>
               {help.hasImage && (

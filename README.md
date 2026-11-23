@@ -77,10 +77,10 @@ This is a single-page app, so the host must serve `index.html` for every path.
 ## How ordering works
 
 Cart → checkout form (name, phone, delivery address required; notes optional) → **Place Order via WhatsApp**.
-The site draws an order summary PNG from the real cart and builds the formatted message. On phones (https, e.g. Android
-Chrome) the native share sheet opens with the picture and the message as caption: choose WhatsApp, the studio chat, send.
-Where file sharing isn't supported, the PNG is saved, WhatsApp opens with the message prefilled, and the customer is told
-to attach the picture. No backend or paid service is used. Shipping and final price are confirmed in the chat.
+The site draws an order summary PNG from the real cart and saves it to the customer's device, then opens the studio's
+WhatsApp chat directly (`wa.me`) with the formatted order message typed in. WhatsApp links cannot attach files, so the
+customer attaches the saved picture with the paperclip before sending (on desktop the picture is also copied for Ctrl+V).
+No backend or paid service is used. Shipping and final price are confirmed in the chat.
 Message format: `src/utils/whatsappOrder.js`. Picture: `src/utils/orderImage.js`. Flow: `src/components/cart/OrderForm.jsx`.
 
 ## Accessibility and motion
